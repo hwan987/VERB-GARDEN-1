@@ -1,0 +1,6 @@
+{
+  "name": "Growing Your Verbs",
+  "description": "초등 5-6학년 과학 교과서 식물과 함께 배우는 불규칙 동사 퀴즈 및 나만의 정원 가꾸기 앱",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
