@@ -402,3 +402,154 @@ export const VERB_LIST: VerbItem[] = [
     },
   },
 ];
+
+export function getVerbSentence(
+  verb: VerbItem,
+  step: 'past' | 'participle'
+): { sentence: string; sentenceKorean: string; targetWord: string } {
+  const isPast = step === 'past';
+  const targetWord = isPast ? verb.past : verb.pastParticiple;
+
+  const sentencesMap: Record<string, { past: string; participle: string; koPast: string; koPart: string }> = {
+    verb_grow: {
+      past: 'The green sprout grew in the warm sun.',
+      participle: 'The bean has grown into a tall plant.',
+      koPast: '초록 새싹이 따뜻한 햇살 아래서 자랐어요.',
+      koPart: '강낭콩이 키 큰 식물로 다 자랐어요.',
+    },
+    verb_drink: {
+      past: 'The balsam drank the colored water.',
+      participle: 'The stems have drunk fresh water.',
+      koPast: '봉선화 줄기가 물감을 탄 물을 마셨어요.',
+      koPart: '줄기가 신선한 물을 충분히 마셨어요.',
+    },
+    verb_see: {
+      past: 'We saw bright sunflowers in the field.',
+      participle: 'I have seen sunflowers turn to light.',
+      koPast: '우리는 들판에서 밝은 해바라기를 보았어요.',
+      koPart: '해바라기가 빛을 향해 도는 것을 보았어요.',
+    },
+    verb_go: {
+      past: 'Dandelion seeds went far in the wind.',
+      participle: 'The fluffy seeds have gone with the breeze.',
+      koPast: '민들레 씨앗이 봄바람을 타고 멀리 날아갔어요.',
+      koPart: '하얀 깃털 씨앗들이 바람과 함께 날아갔어요.',
+    },
+    verb_speak: {
+      past: 'The teacher spoke about twisting vines.',
+      participle: 'She has spoken about morning glory stems.',
+      koPast: '선생님께서 감고 올라가는 덩굴에 대해 말씀하셨어요.',
+      koPart: '나팔꽃 줄기에 대해 자세히 설명해 주셨어요.',
+    },
+    verb_make: {
+      past: 'Lily flowers made sweet nectar for bees.',
+      participle: 'The petals have made a wonderful scent.',
+      koPast: '백합 꽃이 벌들을 위한 달콤한 꿀을 만들었어요.',
+      koPart: '꽃잎이 향기로운 향을 가득 만들었어요.',
+    },
+    verb_take: {
+      past: 'The lotus took root in the mud pond.',
+      participle: 'Water lilies have taken air through pipes.',
+      koPast: '연꽃이 진흙 연못 바닥에 뿌리를 내렸어요.',
+      koPart: '물풀들이 숨구멍을 통해 공기를 들이마셨어요.',
+    },
+    verb_shine: {
+      past: 'The bright sun shone on the green cactus.',
+      participle: 'Warm light has shone on desert needles.',
+      koPast: '밝은 태양이 초록 선인장을 따뜻하게 비추었어요.',
+      koPart: '따뜻한 햇살이 가시 돋친 줄기를 비추었어요.',
+    },
+    verb_fall: {
+      past: 'Red maple leaves fell softly on the soil.',
+      participle: 'Autumn leaves have fallen from branches.',
+      koPast: '붉은 단풍잎들이 부드럽게 흙 위로 떨어졌어요.',
+      koPart: '가을 잎사귀들이 나뭇가지에서 떨어졌어요.',
+    },
+    verb_eat: {
+      past: 'We ate sweet red tomatoes from the pot.',
+      participle: 'The birds have eaten juicy garden fruit.',
+      koPast: '우리는 화분에서 딴 달콤한 토마토를 먹었어요.',
+      koPart: '새들이 정원의 싱싱한 열매를 맛있게 먹었어요.',
+    },
+    verb_swim: {
+      past: 'Duckweed leaves swam peacefully on the lake.',
+      participle: 'Tiny plants have swam together on the water.',
+      koPast: '개구리밥 잎들이 호수 물 위에 둥둥 떠다녔어요.',
+      koPart: '작은 수생식물들이 물 위에서 헤엄치듯 떠있어요.',
+    },
+    verb_stand: {
+      past: 'The evergreen pine tree stood in the winter cold.',
+      participle: 'The strong needles have stood against heavy snow.',
+      koPast: '사철 푸른 소나무가 겨울 추위 속에서도 꿋꿋이 서 있었어요.',
+      koPart: '소나무 바늘잎들이 흰 눈 속에서도 꿋꿋하게 버텨냈어요.',
+    },
+    verb_fly: {
+      past: 'Corn pollen flew across the farmland.',
+      participle: 'Golden powder has flown between tall leaves.',
+      koPast: '옥수수 꽃가루가 바람을 타고 밭 위로 날렸어요.',
+      koPart: '황금빛 꽃가루가 긴 옥수수 잎 사이로 날아갔어요.',
+    },
+    verb_come: {
+      past: 'Yellow canola blossoms came out in early spring.',
+      participle: 'Warm spring days have come to the flower fields.',
+      koPast: '노란 유채꽃이 이른 봄날에 활짝 피어났어요.',
+      koPart: '따스한 봄이 유채꽃 들판에 찾아왔어요.',
+    },
+    verb_hide: {
+      past: 'Small water bugs hid among brown cattails.',
+      participle: 'Baby frogs have hidden under wetland reeds.',
+      koPast: '작은 물벌레들이 갈색 부들 줄기 사이에 숨었어요.',
+      koPart: '어린 개구리들이 습지 갈대 아래에 숨었어요.',
+    },
+    verb_sing: {
+      past: 'Morning birds sang near the Rose of Sharon.',
+      participle: 'Sweet crickets have sung beside pink petals.',
+      koPast: '아침 새들이 무궁화 꽃나무 곁에서 노래했어요.',
+      koPart: '귀여운 풀벌레들이 분홍 꽃잎 곁에서 노래했어요.',
+    },
+    verb_find: {
+      past: 'The students found little violets in the grass.',
+      participle: 'We have found purple spring wildflowers.',
+      koPast: '학생들이 풀밭에서 작고 귀여운 제비꽃을 발견했어요.',
+      koPart: '우리가 보랏빛 봄 들꽃을 찾아냈어요.',
+    },
+    verb_wear: {
+      past: 'Ancient ginkgo trees wore golden yellow clothes.',
+      participle: 'The street has worn a bright golden carpet.',
+      koPast: '오래된 은행나무들이 황금빛 노란 옷을 입었어요.',
+      koPart: '길거리가 눈부신 노란 은행잎 카펫을 입었어요.',
+    },
+    verb_sleep: {
+      past: 'Clover leaves slept together when night arrived.',
+      participle: 'Green leaflets have slept until morning light.',
+      koPast: '밤이 찾아오자 토끼풀 잎들이 서로 포개져 잠들었어요.',
+      koPart: '초록 토끼풀 잎들이 아침 햇살이 올 때까지 곤히 잤어요.',
+    },
+    verb_know: {
+      past: 'We knew the persimmon cap was a firm calyx.',
+      participle: 'Children have known how flowers protect fruit.',
+      koPast: '우리는 감 꼭지가 꽃을 지켜주던 꽃받침인 것을 알았어요.',
+      koPart: '아이들이 꽃받침이 열매를 지키는 방법을 알게 되었어요.',
+    },
+  };
+
+  const item = sentencesMap[verb.id];
+  if (item) {
+    return {
+      sentence: isPast ? item.past : item.participle,
+      sentenceKorean: isPast ? item.koPast : item.koPart,
+      targetWord,
+    };
+  }
+
+  // Fallback natural sentence
+  return {
+    sentence: isPast
+      ? `The student ${targetWord} in science class.`
+      : `The plant has ${targetWord} in the garden.`,
+    sentenceKorean: isPast
+      ? `학생이 과학 시간에 ${verb.meaning} 했어요.`
+      : `식물이 정원에서 ${verb.meaning} 되었어요.`,
+    targetWord,
+  };
+}

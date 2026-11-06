@@ -23,6 +23,9 @@ export interface VerbItem {
   distractorsParticiple: string[]; // 과거분사 오답 2개
   plantName: string; // 식물 이름 (예: 강낭콩)
   plantEnglish: string; // 식물 영문명 (예: Kidney Bean)
+  sentencePast?: string; // 초등 3~4학년 수준 과거형 예문
+  sentenceParticiple?: string; // 초등 3~4학년 수준 과거분사 예문
+  sentenceKorean?: string; // 예문 한국어 해석
   plantType:
     | 'bean'
     | 'balsam'
@@ -53,10 +56,40 @@ export interface GardenPlantRecord {
   timesMastered: number;
 }
 
+export interface SentenceTapStat {
+  questionNumber: number;
+  verbId: string;
+  verb: string;
+  sentence: string;
+  taps: number; // 문장별 탭 횟수
+}
+
+export interface TapMetrics {
+  totalTaps: number;
+  averageTaps: number; // 각 문장별 평균 탭 수
+  frequencySummary: string; // 각 문장별 탭 빈도 요약 문자열
+  sentenceStats: SentenceTapStat[];
+}
+
 export interface GameResult {
   score: number;
   totalQuestions: number;
   correctCount: number;
   completedVerbIds: string[];
   wrongVerbIds: string[];
+  tapMetrics?: TapMetrics;
+}
+
+export interface GamePlayLog {
+  id: string;
+  timestamp: string; // e.g. "2026-10-30 11:25:30"
+  play_account: number; // sequential play count (플레이 횟수)
+  wrong_account: number; // wrong answers count (틀린 개수)
+  tap_average?: number; // 문장별 평균 탭 수
+  tap_frequency?: string; // 문장별 탭 빈도
+  total_taps?: number; // 전체 탭 수
+  score: number;
+  correctCount: number;
+  totalQuestions: number;
+  syncedToGoogleSheet?: boolean;
 }

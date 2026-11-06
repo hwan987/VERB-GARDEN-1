@@ -8,6 +8,8 @@ import { ReviewView } from './components/ReviewView';
 import { Screen, GameResult, VerbItem, GardenPlantRecord } from './types';
 import { VERB_LIST } from './data/verbs';
 import { storage } from './services/storage';
+import { sheetLogger } from './services/sheetLogger';
+import { GoogleSheetModal } from './components/GoogleSheetModal';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
@@ -15,6 +17,7 @@ export default function App() {
   const [wrongVerbs, setWrongVerbs] = useState<string[]>([]);
   const [gameQuestions, setGameQuestions] = useState<VerbItem[]>([]);
   const [lastGameResult, setLastGameResult] = useState<GameResult | null>(null);
+  const [isSheetModalOpen, setIsSheetModalOpen] = useState(false);
 
   // Sync state from storage
   const reloadUserData = useCallback(() => {
@@ -51,11 +54,26 @@ export default function App() {
     correctCount: number;
     completedVerbIds: string[];
     wrongVerbIds: string[];
+    tapMetrics?: import('./types').TapMetrics;
   }) => {
-    storage.recordGame(result.score, result.correctCount);
+    const updatedStats = storage.recordGame(result.score, result.correctCount);
     reloadUserData();
     setLastGameResult(result);
     setScreen('result');
+
+    // Automatically record log to Google Sheet with sentence tap frequency & average
+    sheetLogger.logGamePlay({
+      playCount: updatedStats.stats.gamesPlayed,
+      wrongCount: result.wrongVerbIds.length,
+      tapAverage: result.tapMetrics?.averageTaps ?? 0,
+      tapFrequency: result.tapMetrics?.frequencySummary ?? '',
+      totalTaps: result.tapMetrics?.totalTaps ?? 0,
+      sentenceDetails: result.tapMetrics?.sentenceStats
+        ? result.tapMetrics.sentenceStats
+            .map((s) => `[Q${s.questionNumber}] ${s.verb} (${s.taps}회) - ${s.sentence}`)
+            .join(' | ')
+        : '',
+    });
   };
 
   return (
@@ -66,6 +84,7 @@ export default function App() {
         onNavigate={(target) => setScreen(target)}
         gardenCount={Object.keys(garden).length}
         score={lastGameResult?.score}
+        onOpenSheetModal={() => setIsSheetModalOpen(true)}
       />
 
       {/* Main Container - Mobile First & Responsive Frame */}
@@ -77,6 +96,7 @@ export default function App() {
             onStartGame={handleStartGame}
             onGoGarden={() => setScreen('garden')}
             onGoReview={() => setScreen('review')}
+            onOpenSheetModal={() => setIsSheetModalOpen(true)}
           />
         )}
 
@@ -94,6 +114,7 @@ export default function App() {
             onRestart={handleStartGame}
             onGoGarden={() => setScreen('garden')}
             onGoReview={() => setScreen('review')}
+            onOpenSheetModal={() => setIsSheetModalOpen(true)}
           />
         )}
 
@@ -114,6 +135,12 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Google Sheets Sync & Apps Script Modal */}
+      <GoogleSheetModal
+        isOpen={isSheetModalOpen}
+        onClose={() => setIsSheetModalOpen(false)}
+      />
     </div>
   );
 }

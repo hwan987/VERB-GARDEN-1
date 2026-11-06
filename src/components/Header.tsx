@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Home, Sprout, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, Home, Sprout, Sparkles, FileSpreadsheet } from 'lucide-react';
 import { sound } from '../services/sound';
 import { Screen } from '../types';
 
@@ -8,6 +8,7 @@ interface HeaderProps {
   onNavigate: (screen: Screen) => void;
   gardenCount: number;
   score?: number;
+  onOpenSheetModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   gardenCount,
   score,
+  onOpenSheetModal,
 }) => {
   const [isMuted, setIsMuted] = useState(sound.getMuted());
 
@@ -49,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
                 Growing Your Verbs
               </h1>
               <span className="text-[10px] text-emerald-600 font-medium">
-                초등 과학 식물과 불규칙 동사
+                초등 3~4학년 영어 불규칙 동사 정원
               </span>
             </div>
           </div>
@@ -64,8 +66,22 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      {/* Right: Garden quick button & Sound toggle */}
-      <div className="flex items-center gap-2">
+      {/* Right: Google Sheets Quick Link & Garden & Sound toggle */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {onOpenSheetModal && (
+          <button
+            onClick={() => {
+              sound.play('click');
+              onOpenSheetModal();
+            }}
+            className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 active:scale-95 px-2 py-1.5 rounded-lg border border-emerald-200/60 transition-all"
+            title="구글 스프레드시트 기록 연동 확인"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">시트 연동</span>
+          </button>
+        )}
+
         {currentScreen !== 'garden' && (
           <button
             onClick={() => {
@@ -75,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 active:scale-95 px-2.5 py-1.5 rounded-lg border border-emerald-200/60 transition-all"
           >
             <Sprout className="w-3.5 h-3.5 text-emerald-600" />
-            <span>내 정원</span>
+            <span>정원</span>
             <span className="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
               {gardenCount}
             </span>

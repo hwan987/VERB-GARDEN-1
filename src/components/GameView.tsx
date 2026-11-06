@@ -1,11 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, CheckCircle2, XCircle, RotateCcw, Heart, AlertCircle } from 'lucide-react';
+import {
+  Volume2,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  Heart,
+  AlertCircle,
+  MousePointerClick,
+  BookMarked,
+} from 'lucide-react';
 import { PlantVisual } from './PlantVisual';
-import { VerbItem, PlantStage, QuizStep } from '../types';
+import { VerbItem, PlantStage, QuizStep, TapMetrics, SentenceTapStat } from '../types';
 import { sound } from '../services/sound';
 import { tts } from '../services/tts';
 import { storage } from '../services/storage';
+import { getVerbSentence } from '../data/verbs';
 
 interface GameViewProps {
   questions: VerbItem[];
@@ -15,6 +25,7 @@ interface GameViewProps {
     correctCount: number;
     completedVerbIds: string[];
     wrongVerbIds: string[];
+    tapMetrics?: TapMetrics;
   }) => void;
   onExit: () => void;
 }
@@ -33,7 +44,7 @@ export const GameView: React.FC<GameViewProps> = ({
   const [wrongVerbIds, setWrongVerbIds] = useState<string[]>([]);
 
   // 2-chance retry tracking per sub-step
-  const [wrongAttempts, setWrongAttempts] = useState(0); // 0 = first attempt, 1 = 1 mistake made (retry available), 2 = failed twice
+  const [wrongAttempts, setWrongAttempts] = useState(0); // 0 = first try, 1 = 1 mistake (retry), 2 = 2 mistakes
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
 
   // Sound & Speech State
@@ -47,7 +58,24 @@ export const GameView: React.FC<GameViewProps> = ({
     correctAnswer: string;
   } | null>(null);
 
+  // Tap tracking state per question / sentence
+  const [sentenceTaps, setSentenceTaps] = useState<number[]>(() =>
+    new Array(questions.length).fill(0)
+  );
+  const sentenceTapsRef = useRef<number[]>(new Array(questions.length).fill(0));
+
   const currentVerb = questions[currentIndex] || questions[0];
+  const sentenceData = getVerbSentence(currentVerb, subStep);
+
+  // Helper to increment tap count for current question/sentence
+  const recordTap = useCallback(() => {
+    setSentenceTaps((prev) => {
+      const next = [...prev];
+      next[currentIndex] = (next[currentIndex] || 0) + 1;
+      sentenceTapsRef.current = next;
+      return next;
+    });
+  }, [currentIndex]);
 
   // Options generator for 3-choice quiz
   const [currentOptions, setCurrentOptions] = useState<string[]>([]);
@@ -91,9 +119,39 @@ export const GameView: React.FC<GameViewProps> = ({
     setupStep('past', currentVerb);
   }, [currentIndex, currentVerb, setupStep]);
 
+  // Calculate final tap metrics
+  const buildTapMetrics = useCallback((): TapMetrics => {
+    const finalTaps = sentenceTapsRef.current;
+    const totalTaps = finalTaps.reduce((acc, count) => acc + (count || 0), 0);
+    const averageTaps = Number((totalTaps / Math.max(questions.length, 1)).toFixed(1));
+
+    const sentenceStats: SentenceTapStat[] = questions.map((q, idx) => {
+      const sent = getVerbSentence(q, 'past');
+      return {
+        questionNumber: idx + 1,
+        verbId: q.id,
+        verb: q.base,
+        sentence: sent.sentence,
+        taps: finalTaps[idx] || 0,
+      };
+    });
+
+    const frequencySummary = sentenceStats
+      .map((s) => `${s.questionNumber}번(${s.verb}): ${s.taps}회`)
+      .join(', ');
+
+    return {
+      totalTaps,
+      averageTaps,
+      frequencySummary,
+      sentenceStats,
+    };
+  }, [questions]);
+
   // Manual replay button
   const handleReplayAudio = () => {
     if (isAnswerChecking) return;
+    recordTap();
     const targetWord = subStep === 'past' ? currentVerb.past : currentVerb.pastParticiple;
     sound.play('click');
     setIsPlayingAudio(true);
@@ -106,10 +164,18 @@ export const GameView: React.FC<GameViewProps> = ({
     });
   };
 
+  // Play full sentence audio
+  const handlePlaySentenceAudio = () => {
+    recordTap();
+    sound.play('click');
+    tts.speak(sentenceData.sentence);
+  };
+
   // Option select handler
   const handleSelectOption = (option: string) => {
     if (!optionsUnlocked || isAnswerChecking || eliminatedOptions.includes(option)) return;
 
+    recordTap();
     setSelectedOption(option);
     setIsAnswerChecking(true);
 
@@ -157,8 +223,10 @@ export const GameView: React.FC<GameViewProps> = ({
 
         // Save to garden
         storage.saveMasteredPlant(currentVerb.id);
-        setCompletedVerbIds((prev) => [...prev, currentVerb.id]);
-        setCorrectAnswersCount((prev) => prev + 1);
+        const nextCompleted = [...completedVerbIds, currentVerb.id];
+        setCompletedVerbIds(nextCompleted);
+        const nextCorrect = correctAnswersCount + 1;
+        setCorrectAnswersCount(nextCorrect);
 
         // Advance to next question or finish
         setTimeout(() => {
@@ -167,12 +235,14 @@ export const GameView: React.FC<GameViewProps> = ({
           } else {
             // End of 10 questions
             sound.play('celebrate');
+            const tapMetrics = buildTapMetrics();
             onFinishGame({
               score: score + earnedScore,
               totalQuestions: questions.length,
-              correctCount: correctAnswersCount + 1,
-              completedVerbIds: [...completedVerbIds, currentVerb.id],
+              correctCount: nextCorrect,
+              completedVerbIds: nextCompleted,
               wrongVerbIds,
+              tapMetrics,
             });
           }
         }, 1900);
@@ -227,12 +297,14 @@ export const GameView: React.FC<GameViewProps> = ({
           if (currentIndex + 1 < questions.length) {
             setCurrentIndex((prev) => prev + 1);
           } else {
+            const tapMetrics = buildTapMetrics();
             onFinishGame({
               score,
               totalQuestions: questions.length,
               correctCount: correctAnswersCount,
               completedVerbIds,
               wrongVerbIds: updatedWrongs,
+              tapMetrics,
             });
           }
         }, 2400);
@@ -240,13 +312,15 @@ export const GameView: React.FC<GameViewProps> = ({
     }
   };
 
+  const currentTaps = sentenceTaps[currentIndex] || 0;
+
   return (
     <div className="flex-1 flex flex-col justify-between max-w-md mx-auto w-full p-4 pb-6">
-      {/* Top Header Information: Question Index & Stage & Chances */}
-      <div className="flex items-center justify-between bg-white rounded-2xl px-3.5 py-2.5 border border-emerald-100 shadow-xs mb-3">
+      {/* Top Header Information: Question Index, Tap Count, Chances */}
+      <div className="flex items-center justify-between bg-white rounded-2xl px-3.5 py-2.5 border border-emerald-100 shadow-xs mb-2.5">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
-            문제 {currentIndex + 1} / {questions.length}
+            문장 {currentIndex + 1} / {questions.length}
           </span>
           <span className="text-[11px] text-slate-500 font-medium">
             {subStep === 'past' ? '① 과거형' : '② 과거분사'}
@@ -254,6 +328,15 @@ export const GameView: React.FC<GameViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Real-time Tap Count Indicator */}
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80"
+            title="현재 문장의 총 탭 수"
+          >
+            <MousePointerClick className="w-3 h-3 text-emerald-600" />
+            <span>탭 {currentTaps}회</span>
+          </div>
+
           {/* 2-Chances Indicator */}
           <div
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
@@ -261,7 +344,7 @@ export const GameView: React.FC<GameViewProps> = ({
                 ? 'bg-rose-50 text-rose-600 border border-rose-200'
                 : 'bg-amber-50 text-amber-800 border border-amber-300 animate-pulse'
             }`}
-            title="단어마다 2번의 기회가 주어져요!"
+            title="문장마다 2번의 기회가 주어져요!"
           >
             <Heart
               className={`w-3.5 h-3.5 fill-current ${
@@ -272,16 +355,11 @@ export const GameView: React.FC<GameViewProps> = ({
               {wrongAttempts === 0 ? '기회 2번' : '남은 기회 1번!'}
             </span>
           </div>
-
-          <div className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hidden sm:flex">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>{currentVerb.plantName}</span>
-          </div>
         </div>
       </div>
 
       {/* Center Plant & Target Verb Card */}
-      <div className="bg-white rounded-3xl p-5 border border-emerald-100 shadow-xs flex flex-col items-center relative overflow-hidden">
+      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-emerald-100 shadow-xs flex flex-col items-center relative overflow-hidden">
         {/* Textbook Badge */}
         <div className="absolute top-3 left-3">
           <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
@@ -290,7 +368,7 @@ export const GameView: React.FC<GameViewProps> = ({
         </div>
 
         {/* Target Base Verb Display */}
-        <div className="mt-4 flex flex-col items-center text-center">
+        <div className="mt-3 flex flex-col items-center text-center">
           <span className="text-xs text-slate-400 font-medium tracking-wide">
             현재 동사 (원형)
           </span>
@@ -300,6 +378,7 @@ export const GameView: React.FC<GameViewProps> = ({
             </h2>
             <button
               onClick={() => {
+                recordTap();
                 sound.play('click');
                 tts.speak(currentVerb.base);
               }}
@@ -315,18 +394,45 @@ export const GameView: React.FC<GameViewProps> = ({
         </div>
 
         {/* Visual Plant Growth */}
-        <div className="my-2">
+        <div className="my-1.5">
           <PlantVisual verb={currentVerb} stage={stage} size="md" showStageBadge={true} />
         </div>
 
+        {/* Elementary School 3-4 Grade Target Sentence Card */}
+        <div className="w-full bg-emerald-50/60 border border-emerald-200/70 rounded-2xl p-2.5 my-1 flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+              <BookMarked className="w-3 h-3 text-emerald-600" />
+              초등 3~4학년 교과 문장
+            </span>
+            <button
+              onClick={handlePlaySentenceAudio}
+              className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-white hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg active:scale-95 transition-all"
+            >
+              <Volume2 className="w-3 h-3 text-emerald-600" />
+              <span>문장 듣기</span>
+            </button>
+          </div>
+
+          <p className="text-xs sm:text-sm font-bold text-slate-800 tracking-tight leading-snug">
+            {sentenceData.sentence.replace(
+              new RegExp(`\\b${sentenceData.targetWord}\\b`, 'i'),
+              `[ ${subStep === 'past' ? '과거형 ?' : '과거분사 ?'} ]`
+            )}
+          </p>
+          <p className="text-[11px] text-slate-500 font-medium">
+            {sentenceData.sentenceKorean}
+          </p>
+        </div>
+
         {/* Textbook Science Tip */}
-        <p className="text-[11px] text-slate-500 text-center line-clamp-2 px-2 bg-slate-50 border border-slate-100 rounded-xl p-2 w-full mt-1">
+        <p className="text-[10px] text-slate-500 text-center line-clamp-2 px-2 bg-slate-50 border border-slate-100 rounded-xl p-1.5 w-full mt-1">
           💡 <span className="font-semibold text-slate-700">과학 교과서 팁:</span> {currentVerb.science.fact}
         </p>
       </div>
 
       {/* Audio Pronunciation Guidance Banner */}
-      <div className="my-3 flex items-center justify-between bg-emerald-50/90 border border-emerald-200/80 rounded-2xl px-4 py-3 shadow-xs">
+      <div className="my-2.5 flex items-center justify-between bg-emerald-50/90 border border-emerald-200/80 rounded-2xl px-4 py-2.5 shadow-xs">
         <div className="flex items-center gap-2.5">
           <div
             className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
@@ -370,7 +476,7 @@ export const GameView: React.FC<GameViewProps> = ({
       </div>
 
       {/* Options List (3 Choices) */}
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         <div className="text-center">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
             {subStep === 'past'
@@ -410,7 +516,7 @@ export const GameView: React.FC<GameViewProps> = ({
                 whileTap={optionsUnlocked && !isAnswerChecking && !isEliminated ? { scale: 0.98 } : {}}
                 onClick={() => handleSelectOption(option)}
                 disabled={!optionsUnlocked || isAnswerChecking || isEliminated}
-                className={`w-full py-3.5 px-5 rounded-2xl border-2 text-base font-semibold transition-all duration-200 flex items-center justify-between shadow-xs ${buttonStyle}`}
+                className={`w-full py-3 px-5 rounded-2xl border-2 text-base font-semibold transition-all duration-200 flex items-center justify-between shadow-xs ${buttonStyle}`}
               >
                 <div className="flex items-center gap-3">
                   <span
@@ -453,7 +559,7 @@ export const GameView: React.FC<GameViewProps> = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className={`mt-3 p-3.5 rounded-2xl border text-center text-xs font-bold flex items-center justify-center gap-2 ${
+            className={`mt-2.5 p-3 rounded-2xl border text-center text-xs font-bold flex items-center justify-center gap-2 ${
               feedback.status === 'correct'
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
                 : feedback.status === 'retry'

@@ -1,17 +1,20 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Sprout, RotateCcw, BookOpen, Volume2, CheckCircle, Sparkles } from 'lucide-react';
+import { Trophy, Sprout, RotateCcw, BookOpen, Volume2, CheckCircle, Sparkles, FileSpreadsheet, ExternalLink } from 'lucide-react';
 import { PlantVisual } from './PlantVisual';
 import { GameResult, VerbItem } from '../types';
 import { VERB_LIST } from '../data/verbs';
 import { sound } from '../services/sound';
 import { tts } from '../services/tts';
+import { storage } from '../services/storage';
+import { sheetLogger, SPREADSHEET_URL } from '../services/sheetLogger';
 
 interface ResultViewProps {
   result: GameResult;
   onRestart: () => void;
   onGoGarden: () => void;
   onGoReview: () => void;
+  onOpenSheetModal?: () => void;
 }
 
 export const ResultView: React.FC<ResultViewProps> = ({
@@ -19,6 +22,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
   onRestart,
   onGoGarden,
   onGoReview,
+  onOpenSheetModal,
 }) => {
   const { score, totalQuestions, correctCount, completedVerbIds, wrongVerbIds } = result;
 
@@ -68,6 +72,108 @@ export const ResultView: React.FC<ResultViewProps> = ({
             </div>
           </div>
         </motion.div>
+
+        {/* Google Sheet Sync Record Card */}
+        <div className="bg-white rounded-3xl p-4 border border-emerald-100 shadow-xs flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                <FileSpreadsheet className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-800">구글 시트 학습 기록 저장</h4>
+                <p className="text-[10px] text-emerald-700 font-medium">
+                  {sheetLogger.getWebAppUrl() ? '구글 스프레드시트에 전송 완료됨' : '플레이 기록이 안전하게 준비됨'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <a
+                href={SPREADSHEET_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 transition-colors"
+                title="구글 시트 새 창에서 열기"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              {onOpenSheetModal && (
+                <button
+                  onClick={() => {
+                    sound.play('click');
+                    onOpenSheetModal();
+                  }}
+                  className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-all"
+                >
+                  설정
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1.5 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 text-center">
+            <div>
+              <span className="text-[9px] text-slate-400 font-bold block uppercase">timestamp</span>
+              <span className="text-[10px] font-mono font-semibold text-slate-700 block truncate">
+                {sheetLogger.formatCurrentTime().split(' ')[1]}
+              </span>
+            </div>
+            <div>
+              <span className="text-[9px] text-slate-400 font-bold block uppercase">play_account</span>
+              <span className="text-xs font-black text-emerald-700 block">
+                {storage.getStats().gamesPlayed}회
+              </span>
+            </div>
+            <div>
+              <span className="text-[9px] text-slate-400 font-bold block uppercase">wrong_account</span>
+              <span className="text-xs font-black text-rose-600 block">
+                {wrongVerbIds.length}개
+              </span>
+            </div>
+            <div>
+              <span className="text-[9px] text-emerald-600 font-bold block uppercase">tap_average</span>
+              <span className="text-xs font-black text-emerald-800 block">
+                {result.tapMetrics?.averageTaps !== undefined
+                  ? `${result.tapMetrics.averageTaps}회`
+                  : '0회'}
+              </span>
+            </div>
+          </div>
+
+          {/* Sentence Tap Frequency Breakdown */}
+          {result.tapMetrics?.sentenceStats && result.tapMetrics.sentenceStats.length > 0 && (
+            <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-2.5">
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                <span className="text-[10px] font-bold text-emerald-900 flex items-center gap-1">
+                  <span>📊 문장별 탭 빈도 (tap_frequency)</span>
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-700">
+                  총 탭: {result.tapMetrics.totalTaps}회 (평균 {result.tapMetrics.averageTaps}회/문장)
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-1">
+                {result.tapMetrics.sentenceStats.map((item) => (
+                  <div
+                    key={`tap-stat-${item.questionNumber}`}
+                    className="bg-white border border-emerald-200/80 rounded-lg p-1 text-center shadow-2xs"
+                    title={`[문장 ${item.questionNumber}] ${item.sentence}`}
+                  >
+                    <span className="text-[9px] text-slate-400 font-medium block">
+                      Q{item.questionNumber}
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-800 block truncate">
+                      {item.verb}
+                    </span>
+                    <span className="text-[10px] font-extrabold text-emerald-600 block">
+                      {item.taps}회
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 이번 학습에서 완성한 식물 */}
         <div className="bg-white rounded-3xl p-4 border border-emerald-100 shadow-xs">

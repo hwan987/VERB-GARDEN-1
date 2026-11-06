@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Play, Sprout, BookOpen, Sparkles, Award, ArrowRight } from 'lucide-react';
+import { Play, Sprout, BookOpen, Sparkles, Award, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { PlantVisual } from './PlantVisual';
 import { VERB_LIST } from '../data/verbs';
 import { GardenPlantRecord } from '../types';
@@ -12,6 +12,7 @@ interface HomeViewProps {
   onStartGame: () => void;
   onGoGarden: () => void;
   onGoReview: () => void;
+  onOpenSheetModal?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -20,6 +21,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onStartGame,
   onGoGarden,
   onGoReview,
+  onOpenSheetModal,
 }) => {
   const completedCount = Object.keys(garden).length;
   const totalPlants = VERB_LIST.length;
@@ -41,7 +43,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100/80 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-full mb-3 shadow-2xs"
         >
           <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-          <span>초등 5~6학년 과학 교과서 연계</span>
+          <span>초등 3~4학년 영어 불규칙 동사 & 과학 식물</span>
         </motion.div>
 
         <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center justify-center gap-2">
@@ -168,6 +170,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
           )}
         </button>
       </div>
+
+      {/* Google Sheets Link & Log View */}
+      {onOpenSheetModal && (
+        <button
+          onClick={() => {
+            sound.play('click');
+            onOpenSheetModal();
+          }}
+          className="mt-3 w-full py-2.5 px-3 rounded-2xl bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200/80 text-emerald-800 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-98 shadow-2xs"
+        >
+          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+          <span>구글 스프레드시트 학습 기록 연동 (Apps Script)</span>
+        </button>
+      )}
     </div>
   );
 };

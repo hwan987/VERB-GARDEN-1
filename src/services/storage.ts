@@ -80,7 +80,34 @@ export const storage = {
     }
   },
 
-  recordGame(score: number, correctCount: number) {
+  getPlayLogs(): import('../types').GamePlayLog[] {
+    try {
+      const data = localStorage.getItem('gyv_play_logs');
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  markLogSynced(logId: string) {
+    const logs = this.getPlayLogs();
+    const target = logs.find((l) => l.id === logId);
+    if (target) {
+      target.syncedToGoogleSheet = true;
+      try {
+        localStorage.setItem('gyv_play_logs', JSON.stringify(logs));
+      } catch {
+        // ignore
+      }
+    }
+  },
+
+  recordGame(
+    score: number,
+    correctCount: number,
+    totalQuestions: number = 10,
+    wrongCount: number = 0
+  ): { stats: UserStats; log: import('../types').GamePlayLog } {
     const stats = this.getStats();
     stats.gamesPlayed += 1;
     stats.totalCorrectAnswers += correctCount;
@@ -92,6 +119,33 @@ export const storage = {
     } catch {
       // ignore
     }
-    return stats;
+
+    // Format current timestamp YYYY-MM-DD HH:mm:ss
+    const now = new Date();
+    const pad = (n: number) => (n < 10 ? '0' + n : n.toString());
+    const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
+      now.getDate()
+    )} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+    const newLog: import('../types').GamePlayLog = {
+      id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      timestamp,
+      play_account: stats.gamesPlayed, // number of times played
+      wrong_account: wrongCount, // number of wrong answers in this game
+      score,
+      correctCount,
+      totalQuestions,
+      syncedToGoogleSheet: false,
+    };
+
+    const currentLogs = this.getPlayLogs();
+    currentLogs.unshift(newLog); // latest first
+    try {
+      localStorage.setItem('gyv_play_logs', JSON.stringify(currentLogs.slice(0, 50)));
+    } catch {
+      // ignore
+    }
+
+    return { stats, log: newLog };
   },
 };
